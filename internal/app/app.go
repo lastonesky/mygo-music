@@ -364,6 +364,9 @@ func Run() error {
 	defer offSecond()
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { a.cancelMusicLink() })
 	repairFileAssociations()
+	if err := registerLauncherIcon(); err != nil {
+		log.Printf("launcher icon: %v", err)
+	}
 	a.useUpdater()
 	mygo.App.WhenReady(func() {
 		a.settings = loadSettings()
