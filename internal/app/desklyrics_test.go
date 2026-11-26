@@ -141,9 +141,8 @@ func TestLockingTheDeskLyricsLeavesOnlyItsLines(t *testing.T) {
 		t.Error("a plate left behind, with the pointer away")
 	}
 	// The padlock is in the lyrics' own window, the one part of it that
-	// takes the pointer: no little window of its own.
-	d.hot = true
-	tt.Move(-20, -20)
+	// takes the pointer: no little window of its own. Hover its centre.
+	tt.Move(w/2, 24)
 	tt.Frame()
 	if _, ok := tt.Find("设置"); ok {
 		t.Error("the unlocked buttons show beside the padlock")
@@ -153,6 +152,20 @@ func TestLockingTheDeskLyricsLeavesOnlyItsLines(t *testing.T) {
 	}
 	if a.settings.LyricLocked {
 		t.Error("still locked after the click on its padlock")
+	}
+}
+
+// A locked window's native input region takes the first click on its padlock
+// immediately, without a cursor poll, while every point outside stays clickable
+// for the window underneath; unlocking restores the whole window.
+func TestLockedDeskLyricsTakeOnlyTheUnlockClick(t *testing.T) {
+	locked := unlockInput(true, 840)
+	want := []mygo.Rectangle{{X: 398, Y: 2, Width: 44, Height: 44}}
+	if len(locked) != 1 || locked[0] != want[0] {
+		t.Fatalf("locked input region: %+v, want the padlock only", locked)
+	}
+	if unlocked := unlockInput(false, 840); unlocked != nil {
+		t.Fatalf("unlocked input region: %+v, want the whole window", unlocked)
 	}
 }
 

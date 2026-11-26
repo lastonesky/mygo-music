@@ -29,12 +29,7 @@ type deskLyrics struct {
 
 	shaped string // what the window is laid out as, as the settings last made it
 	shown  bool   // whether the window was shown at its last update
-	hot    bool   // the pointer over the padlock of a locked window
 }
-
-// lyricPoll is how often a locked window looks for its padlock: it takes no
-// pointer elsewhere, so it hears no pointer arriving.
-const lyricPoll = 60 * time.Millisecond
 
 // iconUnlock is the open padlock, drawn as paths rather than assembled from
 // boxes, so its arm stays round and its gap clear at every size.
@@ -266,8 +261,8 @@ func (d *deskLyrics) apply() {
 	// The transparent edges resize only while unlocked; a locked window
 	// takes no pointer, so it cannot be resized or moved either.
 	d.win.SetMovable(!s.LyricLocked)
-	d.hot = false
-	d.win.SetIgnoreMouseEvents(s.LyricLocked)
+	d.win.SetIgnoreMouseEvents(false)
+	d.win.SetInputRegion(unlockInput(s.LyricLocked, d.win.Bounds().Width))
 	clearFrame(d.win)
 	d.win.SetAlwaysOnTop(true)
 	d.shown = s.LyricWindow
@@ -294,8 +289,8 @@ func (d *deskLyrics) setLocked(locked bool) {
 		return // as in tests
 	}
 	d.win.SetMovable(!locked)
-	d.hot = false
-	d.win.SetIgnoreMouseEvents(locked)
+	d.win.SetIgnoreMouseEvents(false)
+	d.win.SetInputRegion(unlockInput(locked, d.win.Bounds().Width))
 	clearFrame(d.win)
 	d.win.Invalidate()
 }
@@ -327,17 +322,15 @@ func (d *deskLyrics) unlockBox() ui.Rect {
 	return ui.Rect{X: float32(b.Width-44) / 2, Y: 2, W: 44, H: 44}
 }
 
-// overUnlock reports whether the pointer is over the padlock. A locked window
-// takes no pointer anywhere else, so this is the only part to watch.
-func (d *deskLyrics) overUnlock() bool {
-	if d.win == nil {
-		return false // as in tests
+// unlockInput is the locked window's native input region: its padlock alone,
+// so the first pointer entry takes the click and everything else passes
+// through. nil gives an unlocked window all of its input back. In particular,
+// an empty region, rather than nil, is the pass-through-everywhere state.
+func unlockInput(locked bool, width int) []mygo.Rectangle {
+	if !locked {
+		return nil
 	}
-	pt := mygo.Screen.CursorScreenPoint()
-	b := d.win.Bounds()
-	r := d.unlockBox()
-	x, y := float32(pt.X-b.X), float32(pt.Y-b.Y)
-	return x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H
+	return []mygo.Rectangle{{X: (width - 44) / 2, Y: 2, Width: 44, Height: 44}}
 }
 
 // toggleDeskLyrics shows the lyrics window or hides it, as its own button
@@ -471,22 +464,6 @@ func (d *deskLyrics) view(c *ui.Context) {
 		pt := mygo.Screen.CursorScreenPoint()
 		b := d.win.Bounds()
 		over = over || (pt.X >= b.X && pt.X < b.X+b.Width && pt.Y >= b.Y && pt.Y < b.Y+b.Height)
-	}
-	if s.LyricLocked {
-		over = d.hot
-		if d.win != nil && s.LyricWindow {
-			if hot := d.overUnlock(); hot != d.hot {
-				d.hot = hot
-				d.win.SetIgnoreMouseEvents(!hot)
-				d.win.SetHasShadow(false)
-				clearFrame(d.win)
-			}
-			// Keep drawing while a locked overlay watches the pointer. On
-			// Wayland the input shape is applied by the next surface commit,
-			// so an idle frame would leave the padlock click-through.
-			d.win.Invalidate()
-			c.After(lyricPoll)
-		}
 	}
 
 	// Nothing to say before anything played.
