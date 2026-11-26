@@ -486,9 +486,10 @@ func (a *app) playerBar(c *ui.Context) {
 							sub, color = pl.Err(), p.accent
 						}
 						if sub == "" {
-							sub = tr.ArtistNames()
+							a.artistLinks(c, tr, p.muted, p.text).FontSize(12).SingleLine().Label("歌曲作者")
+						} else {
+							ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine().Label("歌曲作者")
 						}
-						ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine().Label("歌曲作者")
 					})
 				}
 			})
