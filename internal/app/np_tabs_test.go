@@ -126,10 +126,19 @@ func TestNowPlayingIdlePointerFollowsWindowLeave(t *testing.T) {
 			tt.Move(682, 260)
 			tt.Advance(250 * time.Millisecond)
 			check(shown)
+			// A pause settles the cover into its held pose, which shifts the
+			// backdrop the tabs sit on, so the paused frame is its own
+			// reference: the controls stay up instead of fading as while playing.
 			a.pl.TogglePlay()
 			tt.Frame()
+			pausedShown := tt.Image()
+			for _, label := range labels {
+				if sameNowPlayingRegion(pausedShown, left, regions[label]) {
+					t.Errorf("%q faded out while paused", label)
+				}
+			}
 			tt.Advance(3 * time.Second)
-			check(shown)
+			check(pausedShown)
 
 			a.pl.TogglePlay()
 			a.npPane = paneQueue
