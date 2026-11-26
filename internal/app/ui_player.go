@@ -416,8 +416,8 @@ func (a *app) playerBar(c *ui.Context) {
 	edge := ui.Box(c.Key("bottom-edge")).Absolute().Left(0).Right(0).Bottom(0).Height(playerBarHeight).
 		Material(glass.ScrollEdge{Hard: true, Bottom: true, Background: p.bg})
 	edge.Opacity(edgeShown(edge, a.underBottom))
-	// The center and actions keep their usable sizes. The song details yield
-	// progressively: artists first, then the title, but never the cover or heart.
+	// The center and actions keep their usable sizes. Song details disappear
+	// together only when their row cannot fit beside the cover and heart.
 	const controls = 4*32 + 3*4 // desk-lyrics, comments, queue and the speaker
 	// This overlay uses the window context, so subtract the main sidebar
 	// instead of making the bottom bar adapt to the entire window width.
@@ -429,18 +429,19 @@ func (a *app) playerBar(c *ui.Context) {
 	} else {
 		bar.PaddingX(20)
 	}
-	showArtists := w >= 600
-	showTitle := w >= 520
+	showDetails := w >= 520
 	bar.Children(func() {
-		// Keep every action. Text shrinks first, then secondary text disappears
-		// before the title, so a snapped window never has to clip its controls.
+		// Keep every action. The text shrinks while visible; below the compact
+		// threshold both lines disappear together, without clipping controls.
 		leftMin := float32(150)
 		leftGrow := float32(1)
-		if !showArtists {
-			leftMin = 70
+		// The artwork itself is 48 DIPs at every width. The row also needs
+		// room for the 32-DIP heart, its margin and the compact gap.
+		if compact {
+			leftMin = 86
 		}
-		if !showTitle {
-			leftMin, leftGrow = 70, 0
+		if !showDetails {
+			leftGrow = 0
 		}
 		ui.Row(c).Grow(leftGrow).Basis(0).MinWidth(leftMin).Label("当前歌曲").Children(func() {
 			if tr == nil {
@@ -458,12 +459,11 @@ func (a *app) playerBar(c *ui.Context) {
 			}
 			hovered := info.Hovered()
 			info.Children(func() {
-				artSize := float32(48)
-				if compact {
-					artSize = 32
-				}
-				ui.Box(c).Size(artSize, artSize).Shrink(0).Children(func() {
-					a.playerBarArtwork(c, tr)
+				// playerBarArtwork owns the 48-DIP fade and hit target. Its
+				// parent only supplies the hover layer; do not resize the child
+				// while the artwork stays at its original size.
+				ui.Box(c).Size(48, 48).Shrink(0).Children(func() {
+					a.playerBarArtwork(c, tr).Label("歌曲封面")
 					if hovered {
 						ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(8).Center().
 							Background(ui.RGBA(0, 0, 0, 0.35)).TextColor(ui.RGB(255, 255, 255)).Children(func() {
@@ -471,11 +471,9 @@ func (a *app) playerBar(c *ui.Context) {
 						})
 					}
 				})
-				if showTitle || showArtists {
+				if showDetails {
 					ui.Column(c).Shrink(1).MinWidth(0).Gap(3).Children(func() {
-						if showTitle {
-							ui.Text(c, tr.Name).FontSize(13.5).FontWeight(600).SingleLine().Label("歌曲名称")
-						}
+						ui.Text(c, tr.Name).FontSize(13.5).FontWeight(600).SingleLine().Label("歌曲名称")
 						// What it is waiting on shows in place of the artists.
 						var sub string
 						color := p.muted
@@ -490,9 +488,7 @@ func (a *app) playerBar(c *ui.Context) {
 						if sub == "" {
 							sub = tr.ArtistNames()
 						}
-						if showArtists {
-							ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine().Label("歌曲作者")
-						}
+						ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine().Label("歌曲作者")
 					})
 				}
 			})
@@ -508,7 +504,7 @@ func (a *app) playerBar(c *ui.Context) {
 		if compact {
 			centerWidth, centerMin = 220, 180
 		}
-		if !showTitle {
+		if !showDetails {
 			centerGrow = 1
 		}
 		ui.Column(c).Width(centerWidth).Grow(centerGrow).Basis(0).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {

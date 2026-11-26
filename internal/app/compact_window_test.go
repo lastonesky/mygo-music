@@ -45,8 +45,8 @@ func testCompactPlayer(t *testing.T, width int) {
 	}
 	_, title := tt.Find("歌曲名称")
 	_, artists := tt.Find("歌曲作者")
-	if title != (width >= 689) || artists != (width >= 769) {
-		t.Fatalf("wrong progressive song details at %d: title=%v artists=%v", width, title, artists)
+	if title != artists || title != (width >= 689) {
+		t.Fatalf("title and artists must hide together at %d: title=%v artists=%v", width, title, artists)
 	}
 	if progress, _ := tt.Find("播放进度"); progress.W < 50 {
 		t.Fatalf("compact progress bar is only %v DIPs wide", progress.W)
@@ -55,6 +55,18 @@ func testCompactPlayer(t *testing.T, width int) {
 	like, _ := tt.Find("喜欢 宝船")
 	if info.X+info.W > like.X {
 		t.Fatalf("song cover and like overlap: info=%+v like=%+v", info, like)
+	}
+	cover, ok := tt.Find("歌曲封面")
+	if !ok || cover.W != 48 || cover.H != 48 {
+		t.Fatalf("compact cover does not match its drawing: %+v", cover)
+	}
+	if title {
+		titleBounds, _ := tt.Find("歌曲名称")
+		artistBounds, _ := tt.Find("歌曲作者")
+		if cover.X+cover.W > titleBounds.X || titleBounds.X+titleBounds.W > like.X ||
+			titleBounds.Y >= artistBounds.Y || artistBounds.Y+artistBounds.H > cover.Y+cover.H {
+			t.Fatalf("cover and two-line song details overlap: cover=%+v title=%+v artists=%+v", cover, titleBounds, artistBounds)
+		}
 	}
 	if err := tt.Click("播放队列"); err != nil {
 		t.Fatalf("cannot open the queue in a compact window: %v", err)
