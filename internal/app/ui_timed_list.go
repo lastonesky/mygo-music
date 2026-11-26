@@ -153,6 +153,7 @@ func (a *app) longTimedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Li
 	m.reset(c, lines, lineWidth, st, revision)
 	if !hadMeasurements && !follow {
 		anchor = m.rowAt(s.Y)
+		inset = max(0, s.Y-m.offsets[anchor])
 	}
 	front, back := anchor, anchor
 	followRow := st.followRow(cur, st.intro.intro)
@@ -201,6 +202,13 @@ func (a *app) longTimedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Li
 			m.poseKey++
 		} else if s.Y > 0 && !resized {
 			delta := m.offsets[anchor] - previous
+			if !hadMeasurements && !follow {
+				// Reanchor at the same row and inset as the short list. Wait for
+				// the measured height before applying its offset, otherwise a
+				// later measurement shifts the row the listener is reading.
+				s.Y = lead + previous + min(inset, m.offsets[anchor+1]-m.offsets[anchor]-1)
+				delta = 0
+			}
 			s.Y += delta
 			g.offset += delta
 			if g.pending {
