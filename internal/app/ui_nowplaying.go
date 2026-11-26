@@ -195,6 +195,14 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *netease.Track, art *artwork, acc
 		side := max(coverSize, 280)
 		padX := npSideX(w)
 		gap := float32(72)
+		// Lyrics already have a narrow-window treatment. Comments, the queue
+		// and captions need a useful column too, rather than whatever remains
+		// after two desktop-sized side margins and a 72 DIP gap.
+		compactPane := w < 900 && a.npPane != paneLyrics
+		if compactPane {
+			side = max(coverSize, 240)
+			padX, gap, coverSunk = 24, 24, 0
+		}
 		immersiveLyrics := false
 		if a.npPane == paneLyrics {
 			display, loaded := pl.LyricsDisplay()
@@ -217,7 +225,7 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *netease.Track, art *artwork, acc
 		columns.Children(func() {
 			// Navigation, cover and controls share one column. Keep its
 			// center even when the cover shrinks below the controls' width.
-			ui.Column(c).Width(side).Padding(coverSunk, 0, 0, 0).Gap(0).Children(func() {
+			controlBody := func() {
 				anchor := ui.Box(c.Key("tabs-anchor")).Height(npTabsHeight)
 				a.npTabsRow(c, anchor, pointerIn).Children(func() { a.paneTabs(c) })
 				ui.Box(c).Height(npTabsGap)
@@ -242,7 +250,16 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *netease.Track, art *artwork, acc
 				ui.Row(c).Justify(ui.Center).Children(func() {
 					a.volumeSlider(c, white.Alpha(0.7), white.Alpha(0.18), 180)
 				})
-			})
+			}
+			if compactPane {
+				// Keep the full player reachable in a short snapped window.
+				// The left column can scroll without disturbing the pane.
+				ui.Scroll(c).Width(side).Shrink(0).Children(func() {
+					ui.Column(c).Width(side).Shrink(0).Gap(0).Children(controlBody)
+				})
+			} else {
+				ui.Column(c).Width(side).Padding(coverSunk, 0, 0, 0).Gap(0).Children(controlBody)
+			}
 
 			pane := ui.Column(c.Key("pane")).Grow(1).Basis(0).MinWidth(0)
 			pane.Children(func() {

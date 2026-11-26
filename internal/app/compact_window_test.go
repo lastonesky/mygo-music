@@ -76,6 +76,34 @@ func testCompactPlayer(t *testing.T, width int) {
 	}
 }
 
+// A snapped window leaves Now Playing's queue and comments a readable column
+// of their own, instead of the few dozen DIPs two desktop margins and a wide
+// gap left beside the cover.
+func TestCompactNowPlayingKeepsItsPaneReadable(t *testing.T) {
+	a := newTestApp()
+	a.settings = defaultSettings()
+	a.pl.Cue([]netease.Track{{ID: 1, Name: "宝船", Duration: 200000}, {ID: 2, Name: "春日影", Duration: 199000}})
+	a.pl.SetLyrics(nil)
+	a.nowPlaying, a.npPane = true, paneQueue
+	tt := ui.NewTesterWith(a.view, 640, 480, ui.TesterOptions{Preferences: ui.Preferences{ReduceMotion: true}})
+	tt.Frame()
+	tt.Advance(npSettle)
+	info, ok := tt.AccessByRole(ui.RoleButton, "宝船")
+	if !ok {
+		t.Fatal("no queue row beside the cover")
+	}
+	row := info.Bounds
+	if row.W < 260 || row.X+row.W > 640 {
+		t.Fatalf("the queue row is %v DIPs wide at x %v, not a readable column inside the window", row.W, row.X)
+	}
+	if err := tt.Click("歌词"); err != nil {
+		t.Fatalf("cannot leave the queue: %v", err)
+	}
+	if a.npPane == paneQueue {
+		t.Fatal("the tabs stopped taking clicks in the compact queue")
+	}
+}
+
 // With NM_FRAMES set, saves the home page and player at the compact minimum
 // width and at the width just before the normal layout takes over.
 func TestCompactWindowFrames(t *testing.T) {
