@@ -412,16 +412,16 @@ func (a *app) playerBar(c *ui.Context) {
 		// Played, or gone: it says what it is again.
 		a.picked = pickedUp{}
 	}
-	// Over the foot of the page: while content is under it, its edge frosts
-	// it, with a hairline along the top.
+	// Frost the player edge only while content is underneath it.
 	edge := ui.Box(c.Key("bottom-edge")).Absolute().Left(0).Right(0).Bottom(0).Height(playerBarHeight).
 		Material(glass.ScrollEdge{Hard: true, Bottom: true, Background: p.bg})
 	edge.Opacity(edgeShown(edge, a.underBottom))
-	// The controls keep the middle, between sides that share what is left:
-	// narrower, the middle gives up to 140 DIPs, and what plays keeps room
-	// for its cover, some of its title and its heart.
+	// The center and actions keep their usable sizes. The song details yield
+	// progressively: artists first, then the title, but never the cover or heart.
 	const controls = 4*32 + 3*4 // desk-lyrics, comments, queue and the speaker
-	w, _ := c.Size()
+	// This overlay uses the window context, so subtract the main sidebar
+	// instead of making the bottom bar adapt to the entire window width.
+	w := mainContentWidth(c)
 	compact := w < 760
 	bar := ui.Row(c).Absolute().Left(0).Right(0).Bottom(0).Height(playerBarHeight).Gap(20).AlignItems(ui.Center).Label("播放栏")
 	if compact {
@@ -429,14 +429,20 @@ func (a *app) playerBar(c *ui.Context) {
 	} else {
 		bar.PaddingX(20)
 	}
+	showArtists := w >= 600
+	showTitle := w >= 520
 	bar.Children(func() {
-		// What plays. A snapped window keeps every action and lets the song
-		// title give up room before the transport and progress.
+		// Keep every action. Text shrinks first, then secondary text disappears
+		// before the title, so a snapped window never has to clip its controls.
 		leftMin := float32(150)
-		if compact {
+		leftGrow := float32(1)
+		if !showArtists {
 			leftMin = 70
 		}
-		ui.Row(c).Grow(1).Basis(0).MinWidth(leftMin).Label("当前歌曲").Children(func() {
+		if !showTitle {
+			leftMin, leftGrow = 70, 0
+		}
+		ui.Row(c).Grow(leftGrow).Basis(0).MinWidth(leftMin).Label("当前歌曲").Children(func() {
 			if tr == nil {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Size(48, 48).Radius(8).Background(p.hover).Center().Children(func() {
@@ -465,25 +471,30 @@ func (a *app) playerBar(c *ui.Context) {
 						})
 					}
 				})
-				ui.Column(c).Shrink(1).MinWidth(0).Gap(3).Children(func() {
-					ui.Text(c, tr.Name).FontSize(13.5).FontWeight(600).SingleLine()
-					// What it is waiting on shows in place of the artists.
-					var sub string
-					color := p.muted
-					switch {
-					case a.picked.id != 0 && a.picked.id == tr.ID:
-						sub = a.picked.heard
-					case pl.Buffering():
-						sub = "正在缓冲…"
-					case pl.Err() != "" && !pl.PlaybackRetryable():
-						sub, color = pl.Err(), p.accent
-					}
-					if sub == "" {
-						a.artistLinks(c, tr, p.muted, p.text).FontSize(12).SingleLine()
-					} else {
-						ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine()
-					}
-				})
+				if showTitle || showArtists {
+					ui.Column(c).Shrink(1).MinWidth(0).Gap(3).Children(func() {
+						if showTitle {
+							ui.Text(c, tr.Name).FontSize(13.5).FontWeight(600).SingleLine().Label("歌曲名称")
+						}
+						// What it is waiting on shows in place of the artists.
+						var sub string
+						color := p.muted
+						switch {
+						case a.picked.id != 0 && a.picked.id == tr.ID:
+							sub = a.picked.heard
+						case pl.Buffering():
+							sub = "正在缓冲…"
+						case pl.Err() != "" && !pl.PlaybackRetryable():
+							sub, color = pl.Err(), p.accent
+						}
+						if sub == "" {
+							sub = tr.ArtistNames()
+						}
+						if showArtists {
+							ui.Text(c, sub).FontSize(12).TextColor(color).SingleLine().Label("歌曲作者")
+						}
+					})
+				}
 			})
 			if info.Clicked() {
 				a.nowPlaying = true
@@ -493,10 +504,14 @@ func (a *app) playerBar(c *ui.Context) {
 
 		// Controls over the progress.
 		centerWidth, centerMin := float32(440), float32(300)
+		centerGrow := float32(0)
 		if compact {
 			centerWidth, centerMin = 220, 180
 		}
-		ui.Column(c).Width(centerWidth).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {
+		if !showTitle {
+			centerGrow = 1
+		}
+		ui.Column(c).Width(centerWidth).Grow(centerGrow).Basis(0).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {
 			a.transport(c, p.text, p.muted, p.accent, 18)
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Margin(-4, 0, 0, 0).Children(func() {
 				ui.Text(c, clock(pl.Position())).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).Width(34).TextAlign(ui.End)
