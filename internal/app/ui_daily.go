@@ -48,8 +48,7 @@ func (a *app) dailyCard(c *ui.Context, now time.Time) {
 	if len(songs) == 0 {
 		return
 	}
-	w, _ := c.Size()
-	inner := w - sidebarWidth - 2*pagePad
+	inner := mainContentWidth(c) - 2*mainPagePadding(c)
 	still := c.Preferences().ReduceMotion
 	art := a.art.get(netease.Sized(songs[0].Album.PicURL, 600), true)
 	card := ui.ButtonBase(c.Key("daily")).Height(dailyHeight).Radius(dailyRadius).FocusRing(false).Label("每日推荐").TextColor(white)

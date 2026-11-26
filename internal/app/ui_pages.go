@@ -15,14 +15,12 @@ const pagePad = 40
 const trackPagePad = pagePad - 12
 
 func trackPageWidth(c *ui.Context) float32 {
-	w, _ := c.Size()
-	return w - sidebarWidth - 1 - 2*trackPagePad // the content's left border also takes one DIP
+	return mainContentWidth(c) - 2*(mainPagePadding(c)-12)
 }
 
 // columns returns how many cards of at least min DIPs fit across the page.
 func (a *app) columns(c *ui.Context, min float32) int {
-	w, _ := c.Size()
-	inner := w - sidebarWidth - 2*pagePad
+	inner := mainContentWidth(c) - 2*mainPagePadding(c)
 	return max(2, int((inner+20)/(min+20)))
 }
 
@@ -47,7 +45,8 @@ func (a *app) homePage(c *ui.Context) {
 	}
 	now := c.Now()
 	top, bottom := a.insets(c)
-	ui.Scroll(c.Key("home")).TrackScroll(&a.pageScroll).Grow(1).Padding(top+pageGap, pagePad, bottom+48, pagePad).ScrollbarInsets(top, 0, bottom, 0).Children(func() {
+	pad := mainPagePadding(c)
+	ui.Scroll(c.Key("home")).TrackScroll(&a.pageScroll).Grow(1).Padding(top+pageGap, pad, bottom+48, pad).ScrollbarInsets(top, 0, bottom, 0).Children(func() {
 		a.startMark(c)
 		defer a.endMark(c)
 		hello := greeting(now)
@@ -104,7 +103,8 @@ func (a *app) chartsPage(c *ui.Context) {
 		return
 	}
 	top, bottom := a.insets(c)
-	ui.Scroll(c.Key("charts")).TrackScroll(&a.pageScroll).Grow(1).Padding(top+pageGap, pagePad, bottom+48, pagePad).ScrollbarInsets(top, 0, bottom, 0).Children(func() {
+	pad := mainPagePadding(c)
+	ui.Scroll(c.Key("charts")).TrackScroll(&a.pageScroll).Grow(1).Padding(top+pageGap, pad, bottom+48, pad).ScrollbarInsets(top, 0, bottom, 0).Children(func() {
 		a.startMark(c)
 		defer a.endMark(c)
 		a.heading(c, "排行榜", "每日更新")
@@ -360,9 +360,8 @@ func (a *app) trackRowsMeta(c *ui.Context, tracks []netease.Track, covers bool, 
 	if a.route.page == pagePlaylist {
 		pid = a.route.id
 	}
-	w, _ := c.Size()
 	// An album's page has no column of the album its songs are on.
-	wide := w-sidebarWidth > 820 && a.route.page != pageAlbum
+	wide := mainContentWidth(c) > 820 && a.route.page != pageAlbum
 	top, bottom := a.insets(c)
 	// Rows out of view are not built, their marks with them: a list
 	// scrolled away from its start or end has content under the bars.

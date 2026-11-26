@@ -12,6 +12,28 @@ import (
 
 const sidebarWidth = 232
 
+// A compact sidebar leaves room for both the content and the player when a
+// compositor snaps the window to half of a display.
+func mainSidebarWidth(c *ui.Context) float32 {
+	w, _ := c.Size()
+	if w < 1000 {
+		return 168
+	}
+	return sidebarWidth
+}
+
+func mainContentWidth(c *ui.Context) float32 {
+	w, _ := c.Size()
+	return w - mainSidebarWidth(c) - 1 // the content's left border also takes one DIP
+}
+
+func mainPagePadding(c *ui.Context) float32 {
+	if mainSidebarWidth(c) < sidebarWidth {
+		return 24
+	}
+	return pagePad
+}
+
 func (a *app) view(c *ui.Context) {
 	t := a.settings.uiTheme(c.Theme())
 	a.pal = paletteFor(&t)
@@ -62,14 +84,14 @@ func (a *app) view(c *ui.Context) {
 				// trackList), so it shows again as it was.
 				return
 			}
-			side := ui.Column(c).Width(sidebarWidth)
+			side := ui.Column(c).Width(mainSidebarWidth(c))
 			if !c.Vibrancy() && len(home) == 0 {
 				side.Background(p.sidebar)
 			}
 			side.Children(func() { a.sidebar(c) })
 			// Keyed, so that a popover of the sidebar opening or closing
 			// keeps what the page and its bars hold, their edges' fades.
-			content := ui.Box(c.Key("main")).Grow(1).BorderWidth(0, 0, 0, 1).BorderColor(p.hairline)
+			content := ui.Box(c.Key("main")).Grow(1).MinWidth(0).BorderWidth(0, 0, 0, 1).BorderColor(p.hairline)
 			if len(home) == 0 {
 				content.Background(p.bg)
 			}

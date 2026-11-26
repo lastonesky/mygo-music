@@ -406,8 +406,8 @@ func Run() error {
 			Title:         mygo.App.Name(),
 			Width:         1180,
 			Height:        780,
-			MinWidth:      880,
-			MinHeight:     580,
+			MinWidth:      640,
+			MinHeight:     480,
 			StateKey:      "main",
 			TitleBarStyle: mygo.TitleBarHidden,
 			// As tall as the edge over a page (Linux, Windows).

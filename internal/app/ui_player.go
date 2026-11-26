@@ -421,9 +421,22 @@ func (a *app) playerBar(c *ui.Context) {
 	// narrower, the middle gives up to 140 DIPs, and what plays keeps room
 	// for its cover, some of its title and its heart.
 	const controls = 4*32 + 3*4 // desk-lyrics, comments, queue and the speaker
-	ui.Row(c).Absolute().Left(0).Right(0).Bottom(0).Height(playerBarHeight).PaddingX(20).Gap(20).AlignItems(ui.Center).Children(func() {
-		// What plays.
-		ui.Row(c).Grow(1).Basis(0).MinWidth(150).Children(func() {
+	w, _ := c.Size()
+	compact := w < 760
+	bar := ui.Row(c).Absolute().Left(0).Right(0).Bottom(0).Height(playerBarHeight).Gap(20).AlignItems(ui.Center).Label("播放栏")
+	if compact {
+		bar.PaddingX(12).Gap(12)
+	} else {
+		bar.PaddingX(20)
+	}
+	bar.Children(func() {
+		// What plays. A snapped window keeps every action and lets the song
+		// title give up room before the transport and progress.
+		leftMin := float32(150)
+		if compact {
+			leftMin = 70
+		}
+		ui.Row(c).Grow(1).Basis(0).MinWidth(leftMin).Label("当前歌曲").Children(func() {
 			if tr == nil {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Size(48, 48).Radius(8).Background(p.hover).Center().Children(func() {
@@ -434,9 +447,16 @@ func (a *app) playerBar(c *ui.Context) {
 				return
 			}
 			info := ui.ButtonBase(c.Key("info")).Gap(12).AlignItems(ui.Center).FocusRing(false).Shrink(1).MinWidth(0).Label("打开正在播放")
+			if compact {
+				info.Gap(6)
+			}
 			hovered := info.Hovered()
 			info.Children(func() {
-				ui.Box(c).Size(48, 48).Shrink(0).Children(func() {
+				artSize := float32(48)
+				if compact {
+					artSize = 32
+				}
+				ui.Box(c).Size(artSize, artSize).Shrink(0).Children(func() {
 					a.playerBarArtwork(c, tr)
 					if hovered {
 						ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(8).Center().
@@ -472,7 +492,11 @@ func (a *app) playerBar(c *ui.Context) {
 		})
 
 		// Controls over the progress.
-		ui.Column(c).Width(440).Shrink(1).MinWidth(300).Gap(0).AlignItems(ui.Stretch).Children(func() {
+		centerWidth, centerMin := float32(440), float32(300)
+		if compact {
+			centerWidth, centerMin = 220, 180
+		}
+		ui.Column(c).Width(centerWidth).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {
 			a.transport(c, p.text, p.muted, p.accent, 18)
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Margin(-4, 0, 0, 0).Children(func() {
 				ui.Text(c, clock(pl.Position())).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).Width(34).TextAlign(ui.End)
@@ -481,8 +505,16 @@ func (a *app) playerBar(c *ui.Context) {
 			})
 		})
 
-		// Desktop lyrics, comments, queue and volume.
-		ui.Row(c).Grow(1).Basis(0).MinWidth(controls).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
+		// Desktop lyrics, comments, queue and volume. Compact mode gives this
+		// row its fixed width: shrinking its buttons would only clip the last
+		// one, while the song title has room to yield.
+		right := ui.Row(c).Justify(ui.End).AlignItems(ui.Center).Gap(4).Label("播放器操作")
+		if compact {
+			right.Gap(0).Width(128).Shrink(0)
+		} else {
+			right.Grow(1).Basis(0).MinWidth(controls)
+		}
+		right.Children(func() {
 			// Desktop lyrics toggle
 			deskLyrColor := p.muted
 			if a.settings.LyricWindow {
