@@ -177,6 +177,24 @@ var hyprlandDesktop = func() bool {
 	return runtime.GOOS == "linux" && strings.Contains(strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP")), "hyprland")
 }
 
+// globalRegisterError turns the backend's immediate refusal into something the
+// listener can act on. Keep an ordinary error's own cause; a portal failure is
+// not evidence that another program holds the key. Wayland's NotAllowed has a
+// specific remedy, without showing the listener its D-Bus details.
+func globalRegisterError(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := err.Error()
+	if runtime.GOOS == "linux" && strings.Contains(message, "desktop entry") && strings.Contains(message, "Error.NotAllowed") {
+		return "系统拒绝了快捷键注册。请将应用安装到应用程序目录，并确保其 .desktop 桌面入口文件名与应用的 desktop entry ID 一致，然后重新启动应用"
+	}
+	if runtime.GOOS == "linux" && strings.Contains(message, "GlobalShortcuts portal") {
+		return "当前桌面未提供全局快捷键服务，请在系统设置中配置全局快捷键，或改用支持 GlobalShortcuts portal 的桌面环境"
+	}
+	return message
+}
+
 // registerGlobals claims the keys the global bindings ask for, and gives back
 // the ones they no longer do: the system lets one app take a key, so what a
 // key is given to has to be claimed again whenever it changes.
@@ -214,9 +232,7 @@ func (a *app) registerGlobals() {
 			},
 		}
 		if err := globalRegister(acc, opts, func() { a.runHotkey(h) }); err != nil {
-			// The system keeps the key for another app, or another action of
-			// this one asked for it first: the settings say so.
-			a.hotkeyErrs[h.name] = "被其他程序占用"
+			a.hotkeyErrs[h.name] = globalRegisterError(err)
 			continue
 		}
 		a.globalKeys = append(a.globalKeys, acc)

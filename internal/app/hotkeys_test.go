@@ -2,6 +2,8 @@ package app
 
 import (
 	"errors"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo"
@@ -128,6 +130,36 @@ func TestGlobalKeysAreClaimedAndGivenBack(t *testing.T) {
 	}
 	if a.hotkeyErrs["deskLyrics"] == "" {
 		t.Errorf("the settings say nothing of the key desk lyrics could not take")
+	}
+}
+
+// An immediate system refusal keeps its actual cause rather than always
+// blaming another program; known Wayland setup failures become concise setup
+// guidance without leaking their verbose backend details.
+func TestGlobalRegistrationExplainsTheActualFailure(t *testing.T) {
+	a := newTestApp()
+	a.settings = defaultSettings()
+	oldSysKeys, oldRegister, oldUnregister := sysKeys, globalRegister, globalUnregister
+	sysKeys = func(*app) bool { return true }
+	globalUnregister = func(string) {}
+	t.Cleanup(func() { sysKeys, globalRegister, globalUnregister = oldSysKeys, oldRegister, oldUnregister })
+
+	cause := errors.New("mygo: shortcut Ctrl+Alt+L is already registered")
+	globalRegister = func(string, mygo.GlobalShortcutOptions, func()) error { return cause }
+	a.registerGlobals()
+	if got := a.hotkeyErrs["deskLyrics"]; got != cause.Error() {
+		t.Fatalf("registration error became %q, want its actual cause %q", got, cause)
+	}
+
+	if runtime.GOOS == "linux" {
+		globalRegister = func(string, mygo.GlobalShortcutOptions, func()) error {
+			return errors.New("mygo: global shortcuts on Wayland need the app installed, with its desktop entry io.example.Player: org.freedesktop.portal.Error.NotAllowed: verbose D-Bus details")
+		}
+		a.registerGlobals()
+		got := a.hotkeyErrs["deskLyrics"]
+		if !strings.Contains(got, ".desktop") || strings.Contains(got, "D-Bus") || strings.Contains(got, "io.example.Player") {
+			t.Fatalf("Wayland setup error was not made actionable and concise: %q", got)
+		}
 	}
 }
 
