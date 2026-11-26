@@ -500,14 +500,12 @@ func (a *app) playerBar(c *ui.Context) {
 
 		// Controls over the progress.
 		centerWidth, centerMin := float32(440), float32(300)
-		centerGrow := float32(0)
+		// Whenever the text yields room, give it to the progress bar instead
+		// of leaving a fixed-width transport stranded between large gaps.
 		if compact {
 			centerWidth, centerMin = 220, 180
 		}
-		if !showDetails {
-			centerGrow = 1
-		}
-		ui.Column(c).Width(centerWidth).Grow(centerGrow).Basis(0).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {
+		ui.Column(c).Width(centerWidth).Grow(1).Basis(0).Shrink(1).MinWidth(centerMin).Gap(0).AlignItems(ui.Stretch).Label("播放控制").Children(func() {
 			a.transport(c, p.text, p.muted, p.accent, 18)
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Margin(-4, 0, 0, 0).Children(func() {
 				ui.Text(c, clock(pl.Position())).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).Width(34).TextAlign(ui.End)
