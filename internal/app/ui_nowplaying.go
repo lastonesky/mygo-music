@@ -148,6 +148,11 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *netease.Track, art *artwork, acc
 		a.npPane = a.lyricsPaneChosen()
 	}
 	pointerIn = a.npPointerActive(c, pointerIn)
+	// A paused player keeps its controls up: pausing is itself an
+	// interaction, and a still frame has nothing to watch but them.
+	if !a.pl.Playing() {
+		pointerIn = true
+	}
 	if a.npPane != paneQueue {
 		a.queueAt = -1
 	}
@@ -339,7 +344,7 @@ func (a *app) npTabsRow(c *ui.Context, anchor ui.Element, pointerIn bool) ui.Ele
 	width := a.npTabsWidth(c)
 	row := ui.Row(c.Key("tabs")).AttachTo(anchor, ui.AnchorCenter, ui.AnchorCenter).AttachEdgeMargin(12).Left(6).
 		Width(width).Height(npTabsHeight).Gap(6).AlignItems(ui.Center).Justify(ui.Center)
-	return reveal(row, !a.pl.Playing() || pointerIn)
+	return reveal(row, pointerIn)
 }
 
 const npPointerIdleDelay = 2 * time.Second
