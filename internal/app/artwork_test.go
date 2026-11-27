@@ -521,3 +521,28 @@ func TestArtworkReplacementKeepsVisibleCover(t *testing.T) {
 		})
 	}
 }
+
+// A mirror fallback must disappear when the newly requested address is explicitly revoked.
+func TestCoverMirrorFallbackHonorsRevocation(t *testing.T) {
+	const old = "https://p2.music.126.net/fixture.jpg?param=96y96"
+	const fresh = "https://p1.music.126.net/fixture.jpg?param=96y96"
+	posts := make(chan func(), 8)
+	c := newArtCache(func(fn func()) { posts <- fn })
+	c.load = func(string) (*ui.Bitmap, image.Image, int, error) {
+		return nil, nil, 0, fmt.Errorf("temporary failure")
+	}
+	t.Cleanup(c.close)
+	ready := &artwork{bmp: ui.NewBitmap(image.NewRGBA(image.Rect(0, 0, 32, 32)))}
+	putListArtwork(c, old, ready)
+	var shown *artwork
+	view := ui.NewTester(func(ctx *ui.Context) { shown = c.getInView(fresh, false, ui.Box(ctx).Size(38, 38)) }, 100, 100)
+	if shown != ready {
+		t.Fatal("mirror fallback missing before new decode")
+	}
+	c.imageChanged(fresh, netease.ImageRevoked)
+	wait(t, posts, "old mirror request")()
+	view.Frame()
+	if shown == nil || shown.bmp != nil || !shown.failed {
+		t.Fatal("mirror fallback hid a revoked cover")
+	}
+}

@@ -162,7 +162,14 @@ func (a *app) cover(c *ui.Context, url string, px int, size, radius float32) ui.
 	})
 }
 
-func (a *app) coverImage(c *ui.Context, size, radius float32, load func(ui.Element) *artwork) ui.Element {
+// listCover shows ready row artwork immediately, including disk restores.
+func (a *app) listCover(c *ui.Context, url string, px int, size, radius float32) ui.Element {
+	return a.coverImage(c, size, radius, func(box ui.Element) *artwork {
+		return a.art.getListInView(a.route, netease.Sized(url, px), box)
+	}, artImmediate)
+}
+
+func (a *app) coverImage(c *ui.Context, size, radius float32, load func(ui.Element) *artwork, presentation ...artPresentation) ui.Element {
 	p := a.pal
 	bg, fg := p.hover, p.faint
 	if a.nowPlaying {
@@ -170,7 +177,7 @@ func (a *app) coverImage(c *ui.Context, size, radius float32, load func(ui.Eleme
 	}
 	box := ui.Box(c).Size(size, size).Radius(radius).Center()
 	bmp := bitmap(load(box))
-	in := artIn(box, bmp)
+	in := artIn(box, bmp, presentation...)
 	box.Children(func() {
 		coverPlaceholder(c, size, radius, 1-in, bg, fg)
 		artImage(c, bmp, radius, in)
@@ -197,12 +204,22 @@ func backdrop(art *artwork) *ui.Bitmap {
 // artFade is how an artwork fades in over its placeholder.
 var artFade = ui.Animation{Duration: 320 * time.Millisecond}
 
+type artPresentation uint8
+
+const (
+	artFadeIn artPresentation = iota
+	artImmediate
+)
+
 // artIn returns how far bmp has faded in on el, the element that shows it
 // or its placeholder: over a moment once it loads while el shows, and at
 // once if it was ready as el first showed.
-func artIn(el ui.Element, bmp *ui.Bitmap) float32 {
+func artIn(el ui.Element, bmp *ui.Bitmap, presentation ...artPresentation) float32 {
 	if bmp == nil {
 		return el.Jump("art", 0)
+	}
+	if len(presentation) > 0 && presentation[0] == artImmediate {
+		return el.Jump("art", 1)
 	}
 	return el.AnimateTo("art", 1, artFade)
 }
