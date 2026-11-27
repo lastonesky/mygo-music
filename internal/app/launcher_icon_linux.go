@@ -65,9 +65,21 @@ func syncLauncherIcon(data, exe, resources string) error {
 	if !updated {
 		return nil
 	}
-	iconPath := filepath.Join(data, "icons", "hicolor", "1024x1024", "apps", name+".png")
+	themePath := filepath.Join(data, "icons", "hicolor")
+	iconPath := filepath.Join(themePath, "1024x1024", "apps", name+".png")
 	if err := os.MkdirAll(filepath.Dir(iconPath), 0o755); err != nil {
 		return fmt.Errorf("create the icon directory: %w", err)
+	}
+	// An icon directory without an index is invisible to GTK and rofi, even
+	// though some launchers scan it as a fallback. Keep an existing user theme.
+	indexPath := filepath.Join(themePath, "index.theme")
+	if _, err := os.Stat(indexPath); errors.Is(err, os.ErrNotExist) {
+		index := "[Icon Theme]\nName=Hicolor\nComment=Fallback icon theme\nHidden=true\nDirectories=1024x1024/apps\n\n[1024x1024/apps]\nSize=1024\nContext=Applications\nType=Fixed\n"
+		if err := os.WriteFile(indexPath, []byte(index), 0o644); err != nil {
+			return fmt.Errorf("describe the icon theme: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("check the icon theme: %w", err)
 	}
 	if err := os.WriteFile(iconPath, icon, 0o644); err != nil {
 		return fmt.Errorf("register the launcher icon: %w", err)

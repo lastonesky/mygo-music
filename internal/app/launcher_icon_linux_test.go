@@ -53,6 +53,17 @@ func TestLauncherIconUsesFreedesktopName(t *testing.T) {
 	if string(registered) != string(icon) {
 		t.Fatal("the registered icon is not the app's icon")
 	}
+	// Rofi follows GTK's theme lookup and does not scan an icon directory that
+	// has no index.theme, unlike launchers that support directory-only fallbacks.
+	index, err := os.ReadFile(filepath.Join(data, "icons", "hicolor", "index.theme"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"Directories=1024x1024/apps\n", "[1024x1024/apps]\n", "Size=1024\n"} {
+		if !strings.Contains(string(index), field) {
+			t.Fatalf("icon theme does not describe the registered icon: missing %q\n%s", field, index)
+		}
+	}
 
 	// Updates restore the absolute path; the next launch registers the new
 	// resource again, instead of treating the already named icon as finished.
