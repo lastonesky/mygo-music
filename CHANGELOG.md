@@ -1,5 +1,14 @@
 # 更新日志
 
+## 0.2.17
+
+### What's Changed
+* fix(linux): register launcher icon for hyprlauncher by @zhangnjsd in https://github.com/zhangnjsd/mygo-music/pull/190
+* fix(ui): support compact snapped windows by @zhangnjsd in https://github.com/zhangnjsd/mygo-music/pull/191
+
+
+**Full Changelog**: https://github.com/zhangnjsd/mygo-music/compare/v0.2.16...v0.2.17
+
 ## 0.2.16
 
 ### What's Changed
