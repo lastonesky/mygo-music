@@ -2,6 +2,7 @@ package app
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
 )
 
@@ -10,6 +11,12 @@ const embeddedArtworkLimit = 8 << 20
 type embeddedArtworkKey struct {
 	path        string
 	stamp, size int64
+}
+
+// artworkKey shares decoded sizes between lists and playback, while a rescan
+// gives changed embedded pictures a new identity.
+func (k embeddedArtworkKey) artworkKey(pixels int) string {
+	return fmt.Sprintf("local-cover/%d/%d/%d/%s", k.stamp, k.size, pixels, k.path)
 }
 
 func (s localSong) embeddedArtworkKey() embeddedArtworkKey {
