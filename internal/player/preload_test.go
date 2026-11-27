@@ -2,6 +2,7 @@ package player
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -25,7 +26,7 @@ func TestPrefetchNext(t *testing.T) {
 	srv, hits := songServer(t, b)
 	var urls atomic.Int64
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if id == 2 {
 			urls.Add(1)
 		}
@@ -89,7 +90,7 @@ func TestNextTakesPendingPrefetch(t *testing.T) {
 	defer releaseURL()
 	var calls atomic.Int64
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if id == 2 && calls.Add(1) == 1 {
 			close(asked)
 			<-release
@@ -129,7 +130,7 @@ func TestPrefetchUsesCachedTrack(t *testing.T) {
 	}
 	p := &Player{Cache: c, post: func(func()) {}}
 	defer p.dropAhead()
-	p.startPrefetch(2, "exhigh", nil, func(int64, string) (*netease.Stream, error) {
+	p.startPrefetch(2, "exhigh", nil, func(context.Context, int64, string) (*netease.Stream, error) {
 		return nil, netease.ErrUnavailable
 	}, 0)
 	a := p.ahead
@@ -147,7 +148,7 @@ func TestLoadRetries(t *testing.T) {
 	srv, _ := songServer(t, b)
 	old := songURL
 	var n atomic.Int64
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if n.Add(1) <= 2 {
 			return nil, errors.New("connection dropped")
 		}
@@ -195,7 +196,7 @@ func TestRiskControlPrefetchIsLimited(t *testing.T) {
 		p := New(func(fn func()) { ch <- fn })
 		p.Cue([]netease.Track{{ID: 1}, {ID: 2}})
 		p.Hold(time.Second)
-		ask := func(int64, string) (*netease.Stream, error) {
+		ask := func(context.Context, int64, string) (*netease.Stream, error) {
 			asks.Add(1)
 			return nil, netease.ErrRiskControl
 		}
@@ -230,7 +231,7 @@ func TestRiskControlPrefetchStopsWhenTheSongMovesOn(t *testing.T) {
 		p := New(func(fn func()) { ch <- fn })
 		p.Cue([]netease.Track{{ID: 1}, {ID: 2}})
 		p.Hold(time.Second)
-		ask := func(int64, string) (*netease.Stream, error) {
+		ask := func(context.Context, int64, string) (*netease.Stream, error) {
 			asks.Add(1)
 			return nil, netease.ErrRiskControl
 		}
@@ -256,7 +257,7 @@ func TestTemporaryFailuresDoNotExhaustLaterSongs(t *testing.T) {
 	srv, _ := songServer(t, b)
 	var asks sync.Map
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		v, _ := asks.LoadOrStore(id, new(atomic.Int64))
 		if v.(*atomic.Int64).Add(1) == 1 {
 			return nil, netease.ErrRiskControl
@@ -282,7 +283,7 @@ func TestLoadFailureDoesNotSkip(t *testing.T) {
 	b := song(t)
 	_, hits := songServer(t, b)
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		return nil, errors.New("connection dropped")
 	}
 	defer func() { songURL = old }()
@@ -385,7 +386,7 @@ func TestCutOffRetries(t *testing.T) {
 	whole, _ := songServer(t, b)
 	cut := cutServer(t, b)
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		return &netease.Stream{URL: fmt.Sprintf("%s/%d", whole.URL, id), Size: int64(len(b)), Level: level, Type: "mp3"}, nil
 	}
 	defer func() { songURL = old }()
@@ -417,7 +418,7 @@ func TestCutOffStops(t *testing.T) {
 	whole, _ := songServer(t, b)
 	cut := cutServer(t, b)
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		return &netease.Stream{URL: fmt.Sprintf("%s/%d", whole.URL, id), Size: int64(len(b)), Level: level, Type: "mp3"}, nil
 	}
 	defer func() { songURL = old }()
@@ -483,7 +484,7 @@ func TestPrefetchWaitsForThisOne(t *testing.T) {
 	t.Cleanup(srv.Close)
 	var asks atomic.Int64
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if id == 2 {
 			asks.Add(1)
 		}
@@ -511,7 +512,7 @@ func TestPrefetchRetriesPlaybackURL(t *testing.T) {
 	srv, hits := songServer(t, b)
 	var attempts atomic.Int64
 	old := songURL
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if id == 2 && attempts.Add(1) == 1 {
 			return nil, errors.New("temporary network failure")
 		}
@@ -538,7 +539,7 @@ func TestLoadSurvivesABriefOutage(t *testing.T) {
 	srv, _ := songServer(t, b)
 	old := songURL
 	var n atomic.Int64
-	songURL = func(id int64, level string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, level string) (*netease.Stream, error) {
 		if id == 1 && n.Add(1) <= 3 {
 			return nil, errors.New("connection dropped")
 		}

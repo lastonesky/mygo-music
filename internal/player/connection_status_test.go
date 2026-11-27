@@ -1,9 +1,11 @@
 package player
 
 import (
-	"netease-music-mygo/internal/netease"
+	"context"
 	"testing"
 	"time"
+
+	"netease-music-mygo/internal/netease"
 )
 
 // Offline audio errors follow connection changes without starting playback,
@@ -47,7 +49,7 @@ func TestConnectionStatusPlaybackRetryPreservesPosition(t *testing.T) {
 	ask := songURL
 	t.Cleanup(func() { songURL = ask })
 	called := make(chan int64, 1)
-	songURL = func(id int64, _ string) (*netease.Stream, error) {
+	songURL = func(_ context.Context, id int64, _ string) (*netease.Stream, error) {
 		called <- id
 		return nil, netease.ErrNotLoggedIn
 	}
